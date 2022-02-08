@@ -1,7 +1,32 @@
+from collections import ChainMap
+from functools import wraps
 import requests
 
 # GitLab user authentication token
 token = ''
+
+
+# TODO there is probably an idiomatic way to do this in requests but too lazy
+#      to look it up
+class AuthedRequests:
+    def __getattr__(self, name):
+        requests_function = getattr(requests, name)
+
+        @wraps(requests_function)
+        def authed_requests_function(*args, **kwargs):
+            headers = {'Authorization': f'Bearer {token}'}
+            kwargs2 = ChainMap(dict(headers=headers), kwargs)
+            try:
+                r = requests_function(*args, **kwargs2)
+                r.raise_for_status()
+            except requests.exceptions.RequestException as e:
+                raise SystemExit(e)
+            return r
+
+        return authed_requests_function
+
+
+authed_requests = AuthedRequests()
 
 
 def get_repos():
@@ -11,16 +36,48 @@ def get_repos():
      - List of public GitLab repositories.
     """
 
-    url = f'https://gitlab.com/api/v4/projects?visibility=public&owned=true&archived=false'
-    headers = {'Authorization': f'Bearer {token}'}
+    url = 'https://gitlab.com/api/v4/projects?visibility=public&owned=true&archived=false'
 
     try:
-        r = requests.get(url, headers=headers)
+        r = authed_requests.get(url)
         r.raise_for_status()
     except requests.exceptions.RequestException as e:
         raise SystemExit(e)
 
     return r.json()
+
+
+def get_user():
+    url = 'https://gitlab.com/api/v4/user'
+
+    try:
+        r = authed_requests.get(url)
+        r.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        raise SystemExit(e)
+
+    return r.json()
+
+
+def get_repo_by_shorthand(shorthand):
+    if "/" not in shorthand:
+        user = get_user()["username"]
+        namespace, project = user, shorthand
+    else:
+        namespace, project = shorthand.rsplit("/", maxsplit=1)
+
+    project_id = requests.utils.quote("/".join([namespace, project]), safe="")
+
+    url = f'https://gitlab.com/api/v4/projects/{project_id}'
+
+    try:
+        r = authed_requests.get(url)
+        r.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        raise SystemExit(e)
+
+    return r.json()
+
 
 
 def get_mirrors(gitlab_repo):
