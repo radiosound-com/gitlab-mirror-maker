@@ -1,4 +1,4 @@
-import requests
+from github import Github
 
 # GitHub user authentication token
 token = ''
@@ -14,17 +14,10 @@ def get_repos():
      - List of public GitHub repositories.
     """
 
-    url = 'https://api.github.com/user/repos?type=public'
-    headers = {'Authorization': f'Bearer {token}'}
+    gh = Github(token)
 
-    try:
-        r = requests.get(url, headers=headers)
-        r.raise_for_status()
-    except requests.exceptions.RequestException as e:
-        raise SystemExit(e)
-
-    # Return only non forked repositories
-    return [x for x in r.json() if not x['fork']]
+    # Return only non forked public repositories
+    return [ x for x in gh.get_user().get_repos(type="public") if not x.fork ]
 
 
 def repo_exists(github_repos, repo_slug):
@@ -38,7 +31,7 @@ def repo_exists(github_repos, repo_slug):
      - True if repository exists, False otherwise.
     """
 
-    return any(repo['full_name'] == repo_slug for repo in github_repos)
+    return any(repo.full_name == repo_slug for repo in github_repos)
 
 
 def create_repo(gitlab_repo):
@@ -51,8 +44,7 @@ def create_repo(gitlab_repo):
      - JSON representation of created GitHub repo.
     """
 
-    url = 'https://api.github.com/user/repos'
-    headers = {'Authorization': f'Bearer {token}'}
+    gh = Github(base_url="https://github.com/api/v3", login_or_token=token)
 
     data = {
         'name': gitlab_repo['path'],
@@ -63,10 +55,4 @@ def create_repo(gitlab_repo):
         'has_projects': False
     }
 
-    try:
-        r = requests.post(url, json=data, headers=headers)
-        r.raise_for_status()
-    except requests.exceptions.RequestException as e:
-        raise SystemExit(e)
-
-    return r.json()
+    return gh.get_user().create_repo(**data)

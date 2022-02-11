@@ -1,4 +1,4 @@
-import requests
+from gitlab import Gitlab
 
 # GitLab user authentication token
 token = ''
@@ -11,16 +11,9 @@ def get_repos():
      - List of public GitLab repositories.
     """
 
-    url = f'https://gitlab.com/api/v4/projects?visibility=public&owned=true&archived=false'
-    headers = {'Authorization': f'Bearer {token}'}
+    gl = Gitlab('https://gitlab.com/', private_token=token)
 
-    try:
-        r = requests.get(url, headers=headers)
-        r.raise_for_status()
-    except requests.exceptions.RequestException as e:
-        raise SystemExit(e)
-
-    return r.json()
+    return gl.projects.list(visibility='public', owned=True, archived=False)
 
 
 def get_mirrors(gitlab_repo):
@@ -33,16 +26,7 @@ def get_mirrors(gitlab_repo):
      - List of mirrors.
     """
 
-    url = f'https://gitlab.com/api/v4/projects/{gitlab_repo["id"]}/remote_mirrors'
-    headers = {'Authorization': f'Bearer {token}'}
-
-    try:
-        r = requests.get(url, headers=headers)
-        r.raise_for_status()
-    except requests.exceptions.RequestException as e:
-        raise SystemExit(e)
-
-    return r.json()
+    return gitlab_repo.remote_mirrors.list()
 
 
 def mirror_target_exists(github_repos, mirrors):
@@ -57,7 +41,7 @@ def mirror_target_exists(github_repos, mirrors):
     """
 
     for mirror in mirrors:
-        if any(mirror['url'] and mirror['url'].endswith(f'{repo["full_name"]}.git') for repo in github_repos):
+        if any(mirror.url and mirror.url.endswith(f'{repo.full_name}.git') for repo in github_repos):
             return True
 
     return False
@@ -78,22 +62,15 @@ def create_mirror(gitlab_repo, github_token, github_user):
      - JSON representation of created mirror.
     """
 
-    url = f'https://gitlab.com/api/v4/projects/{gitlab_repo["id"]}/remote_mirrors'
-    headers = {'Authorization': f'Bearer {token}'}
-
     # If github-user is not provided use the gitlab username
     if not github_user:
-        github_user = gitlab_repo['owner']['username']
+        github_user = gitlab_repo.owner.username
 
     data = {
-        'url': f'https://{github_user}:{github_token}@github.com/{github_user}/{gitlab_repo["path"]}.git',
+        'url': f'https://{github_user}:{github_token}@github.com/{github_user}/{gitlab_repo.path}.git',
         'enabled': True
     }
 
-    try:
-        r = requests.post(url, json=data, headers=headers)
-        r.raise_for_status()
-    except requests.exceptions.RequestException as e:
-        raise SystemExit(e)
+    mirror = gitlab_repo.remote_mirrors.create(data)
 
-    return r.json()
+    return mirror

@@ -75,7 +75,7 @@ def check_mirror_status(gitlab_repo, github_repos):
         action['create_mirror'] = False
         return action
 
-    if github.repo_exists(github_repos, gitlab_repo['path_with_namespace']):
+    if github.repo_exists(github_repos, gitlab_repo.path_with_namespace):
         action['create_github'] = False
 
     return action
@@ -94,7 +94,7 @@ def print_summary_table(actions):
     summary = []
 
     for action in actions:
-        row = [action["gitlab_repo"]["path_with_namespace"]]
+        row = [action["gitlab_repo"].path_with_namespace]
         row.append(missing) if action["create_github"] else row.append(created)
         row.append(missing) if action["create_mirror"] else row.append(created)
         summary.append(row)
