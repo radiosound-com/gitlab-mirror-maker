@@ -14,8 +14,10 @@ Changes so far:
     gitlab-mirror-maker has with pagination.
 
 -----
+
 **README of original gitlab-mirror-maker below, most of which of course doesn't
 apply to this fork. Bear with me while I set things up here.**
+
 -----
 
 # GitLab Mirror Maker
