@@ -1,3 +1,23 @@
+# FORK
+
+The original gitlab-mirror-maker repo has been archived by its owner, but I
+like the project and have some ideas for features that would make it even
+better. So I'll implement those here instead.
+
+Changes so far:
+
+- Swapped out API access via raw requests for API wrapper libraries
+  ([python-gitlab](https://python-gitlab.readthedocs.io/) and
+  [PyGithub](https://pygithub.readthedocs.io/)) instead
+  - This immediately fixes an
+    [issue](https://github.com/grdl/gitlab-mirror-maker/pull/2) the original
+    gitlab-mirror-maker has with pagination.
+
+-----
+**README of original gitlab-mirror-maker below, most of which of course doesn't
+apply to this fork. Bear with me while I set things up here.**
+-----
+
 # GitLab Mirror Maker
 
 GitLab Mirror Maker is a small tool written in Python that automatically mirrors your public repositories from GitLab to GitHub.
