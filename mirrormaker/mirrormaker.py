@@ -1,20 +1,43 @@
-import click
 from tabulate import tabulate
+import typer
+from tqdm import tqdm
+from typing import Optional
 from . import __version__
 from . import gitlab
 from . import github
 
+app = typer.Typer()
 
-@click.command(context_settings={'auto_envvar_prefix': 'MIRRORMAKER'})
-@click.version_option(version=__version__)
-@click.option('--github-token', required=True, help='GitHub authentication token')
-@click.option('--gitlab-token', required=True, help='GitLab authentication token')
-@click.option('--github-user', help='GitHub username. If not provided, your GitLab username will be used by default.')
-@click.option('--target-forks/--no-target-forks', default=False, help="Allow forks as target repos for pushing.")
-@click.option('--dry-run/--no-dry-run', default=False, help="If enabled, a summary will be printed and no mirrors will be created.")
-@click.argument('repo', required=False)
-def mirrormaker(github_token, gitlab_token, github_user, target_forks, dry_run,
-repo=None):
+@app.command(context_settings={'auto_envvar_prefix': 'MIRRORMAKER'})
+def mirrormaker(
+    github_token: str = typer.Option(
+        ...,
+        help='GitHub authentication token',
+    ),
+    gitlab_token: str = typer.Option(
+        ...,
+        help='GitLab authentication token',
+    ),
+    github_user: Optional[str] = typer.Option(
+        None,
+        help='GitHub username. If not provided, your GitLab username will be used by default.'
+    ),
+    target_forks: bool = typer.Option(
+        False,
+        help="Allow forks as target repos for pushing."
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        help="If enabled, a summary will be printed and no mirrors will be created."
+    ),
+    repo: Optional[str] = typer.Argument(
+        None,
+        help='If given, a mirror will be set up for this repository only. Can be either '
+        'a simple project name ("myproject"), in which case its namespace is assumed to '
+        'be the current user, or the path of a project under a specific namespace '
+        '("mynamespace/myproject").'
+    )
+):
     """
     Set up mirroring of repositories from GitLab to GitHub.
 
@@ -33,13 +56,13 @@ repo=None):
     if repo:
         gitlab_repos = [gitlab.get_repo_by_shorthand(repo)]
     else:
-        click.echo('Getting your public GitLab repositories')
+        typer.echo('Getting your public GitLab repositories')
         gitlab_repos = gitlab.get_repos()
         if not gitlab_repos:
-            click.echo('There are no public repositories in your GitLab account.')
+            typer.echo('There are no public repositories in your GitLab account.')
             return
 
-    click.echo('Getting your public GitHub repositories')
+    typer.echo('Getting your public GitHub repositories')
     github_repos = github.get_repos()
 
     actions = find_actions_to_perform(gitlab_repos, github_repos)
@@ -48,7 +71,7 @@ repo=None):
 
     perform_actions(actions, dry_run)
 
-    click.echo('Done!')
+    typer.echo('Done!')
 
 
 def find_actions_to_perform(gitlab_repos, github_repos):
@@ -64,10 +87,9 @@ def find_actions_to_perform(gitlab_repos, github_repos):
     """
 
     actions = []
-    with click.progressbar(gitlab_repos, label='Checking mirrors status', show_eta=False) as bar:
-        for gitlab_repo in bar:
-            action = check_mirror_status(gitlab_repo, github_repos)
-            actions.append(action)
+    for gitlab_repo in tqdm(gitlab_repos, desc='Checking mirrors status'):
+        action = check_mirror_status(gitlab_repo, github_repos)
+        actions.append(action)
 
     return actions
 
@@ -101,10 +123,10 @@ def print_summary_table(actions):
     """Prints a table summarizing whether mirrors are already created or missing
     """
 
-    click.echo('Your mirrors status summary:\n')
+    typer.echo('Your mirrors status summary:\n')
 
-    created = click.style(u'\u2714 created', fg='green')
-    missing = click.style(u'\u2718 missing', fg='red')
+    created = typer.style(u'\u2714 created', fg='green')
+    missing = typer.style(u'\u2718 missing', fg='red')
 
     headers = ['GitLab repo', 'GitHub repo', 'Mirror']
     summary = []
@@ -117,7 +139,7 @@ def print_summary_table(actions):
 
     summary.sort()
 
-    click.echo(tabulate(summary, headers) + '\n')
+    typer.echo(tabulate(summary, headers) + '\n')
 
 
 def perform_actions(actions, dry_run):
@@ -129,18 +151,20 @@ def perform_actions(actions, dry_run):
     """
 
     if dry_run:
-        click.echo('Run without the --dry-run flag to create missing repositories and mirrors.')
+        typer.echo('Run without the --dry-run flag to create missing repositories and mirrors.')
         return
 
-    with click.progressbar(actions, label='Creating mirrors', show_eta=False) as bar:
-        for action in bar:
-            if action["create_github"]:
-                github.create_repo(action["gitlab_repo"])
+    for action in tqdm(actions, desc='Creating mirrors'):
+        if action["create_github"]:
+            github.create_repo(action["gitlab_repo"])
 
-            if action["create_mirror"]:
-                gitlab.create_mirror(action["gitlab_repo"], github.token, github.user)
+        if action["create_mirror"]:
+            gitlab.create_mirror(action["gitlab_repo"], github.token, github.user)
+
+
+def main():
+    app()
 
 
 if __name__ == '__main__':
-    # pylint: disable=no-value-for-parameter, unexpected-keyword-arg
-    mirrormaker()
+    main()
