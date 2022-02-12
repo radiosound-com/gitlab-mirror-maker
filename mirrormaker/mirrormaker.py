@@ -1,20 +1,43 @@
 import click
 from tabulate import tabulate
+import typer
+from typing import Optional
 from . import __version__
 from . import gitlab
 from . import github
 
+app = typer.Typer()
 
-@click.command(context_settings={'auto_envvar_prefix': 'MIRRORMAKER'})
-@click.version_option(version=__version__)
-@click.option('--github-token', required=True, help='GitHub authentication token')
-@click.option('--gitlab-token', required=True, help='GitLab authentication token')
-@click.option('--github-user', help='GitHub username. If not provided, your GitLab username will be used by default.')
-@click.option('--target-forks/--no-target-forks', default=False, help="Allow forks as target repos for pushing.")
-@click.option('--dry-run/--no-dry-run', default=False, help="If enabled, a summary will be printed and no mirrors will be created.")
-@click.argument('repo', required=False)
-def mirrormaker(github_token, gitlab_token, github_user, target_forks, dry_run,
-repo=None):
+@app.command(context_settings={'auto_envvar_prefix': 'MIRRORMAKER'})
+def mirrormaker(
+    github_token: str = typer.Option(
+        ...,
+        help='GitHub authentication token',
+    ),
+    gitlab_token: str = typer.Option(
+        ...,
+        help='GitLab authentication token',
+    ),
+    github_user: Optional[str] = typer.Option(
+        None,
+        help='GitHub username. If not provided, your GitLab username will be used by default.'
+    ),
+    target_forks: bool = typer.Option(
+        False,
+        help="Allow forks as target repos for pushing."
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        help="If enabled, a summary will be printed and no mirrors will be created."
+    ),
+    repo: Optional[str] = typer.Argument(
+        None,
+        help='If given, a mirror will be set up for this repository only. Can be either '
+        'a simple project name ("myproject"), in which case its namespace is assumed to '
+        'be the current user, or the path of a project under a specific namespace '
+        '("mynamespace/myproject").'
+    )
+):
     """
     Set up mirroring of repositories from GitLab to GitHub.
 
@@ -141,6 +164,9 @@ def perform_actions(actions, dry_run):
                 gitlab.create_mirror(action["gitlab_repo"], github.token, github.user)
 
 
+def main():
+    app()
+
+
 if __name__ == '__main__':
-    # pylint: disable=no-value-for-parameter, unexpected-keyword-arg
-    mirrormaker()
+    main()
