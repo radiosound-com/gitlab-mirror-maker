@@ -12,6 +12,8 @@ Changes so far:
   - This immediately fixes an
     [issue](https://github.com/grdl/gitlab-mirror-maker/pull/2) the original
     gitlab-mirror-maker has with pagination.
+- Added `REPO` argument to CLI to allow mirroring only a single repository
+  instead of all of them
 
 -----
 
