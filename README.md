@@ -17,8 +17,9 @@ Changes so far:
 
 -----
 
-**README of original gitlab-mirror-maker below, most of which of course doesn't
-apply to this fork. Bear with me while I set things up here.**
+**README of original gitlab-mirror-maker (with changes only to the help text)
+below, most of which of course doesn't apply to this fork. Bear with me while I
+set things up here.**
 
 -----
 
