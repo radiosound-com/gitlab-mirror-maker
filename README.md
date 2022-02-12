@@ -14,6 +14,12 @@ Changes so far:
     gitlab-mirror-maker has with pagination.
 - Added `REPO` argument to CLI to allow mirroring only a single repository
   instead of all of them
+- Added `--target-forks` CLI option to allow setting up mirrors that push
+  towards repositories which are themselves forks
+  - Useful if you want to make clear that a repo is a fork on both GitLab and
+    GitHub
+  - You have to fork manually on both ends, but the mirror will be set up
+    automatically by gitlab-mirror-maker
 
 -----
 
