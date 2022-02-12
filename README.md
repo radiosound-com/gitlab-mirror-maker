@@ -20,6 +20,8 @@ Changes so far:
     GitHub
   - You have to fork manually on both ends, but the mirror will be set up
     automatically by gitlab-mirror-maker
+- Switched from `click` to `typer` and `tqdm` for CLI and progress bar,
+  respectively (no immediate user improvement, just more modern)
 
 -----
 
