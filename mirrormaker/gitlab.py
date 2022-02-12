@@ -1,4 +1,5 @@
 from gitlab import Gitlab
+from tqdm import tqdm
 
 # GitLab user authentication token
 token = ''
@@ -13,7 +14,11 @@ def get_repos():
 
     gl = Gitlab('https://gitlab.com/', private_token=token)
 
-    return gl.projects.list(visibility='public', owned=True, archived=False)
+    repos_iter = gl.projects.list(visibility='public', owned=True,
+        archived=False, as_list=False)
+    repos = [ repo for repo in tqdm(repos_iter, desc="Repos") ]
+
+    return repos
 
 
 def get_user():
