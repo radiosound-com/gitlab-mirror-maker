@@ -1,4 +1,3 @@
-import urllib.parse
 from gitlab import Gitlab
 
 # GitLab user authentication token
