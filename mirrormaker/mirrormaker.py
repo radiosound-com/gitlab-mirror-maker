@@ -1,5 +1,4 @@
 import click
-import requests
 from tabulate import tabulate
 from . import __version__
 from . import gitlab
