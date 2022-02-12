@@ -85,16 +85,18 @@ Usage: gitlab-mirror-maker [OPTIONS] [REPO]
   project under a specific namespace ("mynamespace/myproject").
 
 Options:
-  --version                 Show the version and exit.
-  --github-token TEXT       GitHub authentication token  [required]
-  --gitlab-token TEXT       GitLab authentication token  [required]
-  --github-user TEXT        GitHub username. If not provided, your GitLab
-                            username will be used by default.
+  --version                       Show the version and exit.
+  --github-token TEXT             GitHub authentication token  [required]
+  --gitlab-token TEXT             GitLab authentication token  [required]
+  --github-user TEXT              GitHub username. If not provided, your
+                                  GitLab username will be used by default.
 
-  --dry-run / --no-dry-run  If enabled, a summary will be printed and no
-                            mirrors will be created.
+  --target-forks / --no-target-forks
+                                  Allow forks as target repos for pushing.
+  --dry-run / --no-dry-run        If enabled, a summary will be printed and no
+                                  mirrors will be created.
 
-  --help                    Show this message and exit.
+  --help                          Show this message and exit.
 ```
 
 # How it works?

@@ -6,6 +6,8 @@ token = ''
 # GitHub username (under this user namespace the mirrors will be created)
 user = ''
 
+target_forks = False
+
 
 def get_repos():
     """Finds all public GitHub repositories (which are not forks) of authenticated user.
@@ -16,8 +18,8 @@ def get_repos():
 
     gh = Github(token)
 
-    # Return only non forked public repositories
-    return [ x for x in gh.get_user().get_repos(type="public") if not x.fork ]
+    # Return only public non forked repositories unless target_forks is set
+    return [ x for x in gh.get_user().get_repos(type="public") if not x.fork or target_forks ]
 
 
 def repo_exists(github_repos, repo_slug):

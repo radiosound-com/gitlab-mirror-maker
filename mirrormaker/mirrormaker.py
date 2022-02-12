@@ -11,9 +11,11 @@ from . import github
 @click.option('--github-token', required=True, help='GitHub authentication token')
 @click.option('--gitlab-token', required=True, help='GitLab authentication token')
 @click.option('--github-user', help='GitHub username. If not provided, your GitLab username will be used by default.')
+@click.option('--target-forks/--no-target-forks', default=False, help="Allow forks as target repos for pushing.")
 @click.option('--dry-run/--no-dry-run', default=False, help="If enabled, a summary will be printed and no mirrors will be created.")
 @click.argument('repo', required=False)
-def mirrormaker(github_token, gitlab_token, github_user, dry_run, repo=None):
+def mirrormaker(github_token, gitlab_token, github_user, target_forks, dry_run,
+repo=None):
     """
     Set up mirroring of repositories from GitLab to GitHub.
 
@@ -27,6 +29,7 @@ def mirrormaker(github_token, gitlab_token, github_user, dry_run, repo=None):
     github.token = github_token
     github.user = github_user
     gitlab.token = gitlab_token
+    github.target_forks = target_forks
 
     if repo:
         gitlab_repos = [gitlab.get_repo_by_shorthand(repo)]
