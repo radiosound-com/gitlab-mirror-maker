@@ -1,3 +1,4 @@
+import urllib.parse
 from gitlab import Gitlab
 
 # GitLab user authentication token
@@ -14,6 +15,27 @@ def get_repos():
     gl = Gitlab('https://gitlab.com/', private_token=token)
 
     return gl.projects.list(visibility='public', owned=True, archived=False)
+
+
+def get_user():
+    gl = Gitlab('https://gitlab.com/', private_token=token)
+    gl.auth()
+
+    return gl.user
+
+
+def get_repo_by_shorthand(shorthand):
+    if "/" not in shorthand:
+        user = get_user().username
+        namespace, project = user, shorthand
+    else:
+        namespace, project = shorthand.rsplit("/", maxsplit=1)
+
+    gl = Gitlab('https://gitlab.com/', private_token=token)
+
+    project_id = "/".join([namespace, project])
+
+    return gl.projects.get(project_id)
 
 
 def get_mirrors(gitlab_repo):
