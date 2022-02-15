@@ -1,3 +1,4 @@
+from collections import namedtuple
 from tabulate import tabulate
 import typer
 from tqdm import tqdm
@@ -6,9 +7,11 @@ from . import __version__
 from . import gitlab
 from . import github
 
+
 app = typer.Typer()
 
-@app.command(context_settings={'auto_envvar_prefix': 'MIRRORMAKER'})
+
+@app.callback(context_settings={'auto_envvar_prefix': 'MIRRORMAKER'})
 def mirrormaker(
     github_token: str = typer.Option(
         ...,
@@ -22,6 +25,32 @@ def mirrormaker(
         None,
         help='GitHub username. If not provided, your GitLab username will be used by default.'
     ),
+):
+    github.token = github_token
+    github.user = github_user
+    gitlab.token = gitlab_token
+
+
+@app.command("list")
+def list_repos_and_mirrors(
+    repo: Optional[str] = typer.Argument(
+        None,
+        help='Specific repository to list.'
+    )
+):
+    """
+    List repositories and their mirror status.
+    """
+    gitlab_repos, github_repos = _get_repos(github_forks=True,
+        gitlab_repo=repo)
+
+    actions = find_actions_to_perform(gitlab_repos, github_repos)
+
+    print_summary_table(actions)
+
+
+@app.command()
+def mirror(
     target_forks: bool = typer.Option(
         False,
         help="Allow forks as target repos for pushing."
@@ -32,10 +61,10 @@ def mirrormaker(
     ),
     repo: Optional[str] = typer.Argument(
         None,
-        help='If given, a mirror will be set up for this repository only. Can be either '
+        help='Specific repository to set up mirror for. Can be either '
         'a simple project name ("myproject"), in which case its namespace is assumed to '
         'be the current user, or the path of a project under a specific namespace '
-        '("mynamespace/myproject").'
+        '("mynamespace/myproject"). If unspecified, mirrors will be created for all repos.'
     )
 ):
     """
@@ -48,13 +77,24 @@ def mirrormaker(
     its namespace is assumed to be the current user, or the path of a project
     under a specific namespace ("mynamespace/myproject").
     """
-    github.token = github_token
-    github.user = github_user
-    gitlab.token = gitlab_token
-    github.target_forks = target_forks
+    gitlab_repos, github_repos = _get_repos(github_forks=True,
+        gitlab_repo=repo)
 
-    if repo:
-        gitlab_repos = [gitlab.get_repo_by_shorthand(repo)]
+    actions = find_actions_to_perform(gitlab_repos, github_repos)
+
+    print_summary_table(actions)
+
+    perform_actions(actions, dry_run)
+
+    typer.echo('Done!')
+
+
+AllRepos = namedtuple("AllRepos", ["gitlab_repos", "github_repos"])
+def _get_repos(github_forks=False, gitlab_repo=None) -> AllRepos:
+    github.target_forks = github_forks
+
+    if gitlab_repo:
+        gitlab_repos = [gitlab.get_repo_by_shorthand(gitlab_repo)]
     else:
         typer.echo('Getting your public GitLab repositories')
         gitlab_repos = gitlab.get_repos()
@@ -64,6 +104,13 @@ def mirrormaker(
 
     typer.echo('Getting your public GitHub repositories')
     github_repos = github.get_repos()
+
+    return AllRepos(gitlab_repos=gitlab_repos, github_repos=github_repos)
+
+
+def _mirror(target_forks=False, dry_run=True, repo=None):
+    gitlab_repos, github_repos = _get_repos(github_forks=True,
+        gitlab_repo=repo)
 
     actions = find_actions_to_perform(gitlab_repos, github_repos)
 
