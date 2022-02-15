@@ -1,3 +1,4 @@
+from collections import namedtuple
 from tabulate import tabulate
 import typer
 from tqdm import tqdm
@@ -38,9 +39,14 @@ def list_repos_and_mirrors(
     )
 ):
     """
-    List repositories and mirrors.
+    List repositories and their mirror status.
     """
-    _mirror(target_forks=True, dry_run=True, repo=repo)
+    gitlab_repos, github_repos = _get_repos(github_forks=True,
+        gitlab_repo=repo)
+
+    actions = find_actions_to_perform(gitlab_repos, github_repos)
+
+    print_summary_table(actions)
 
 
 @app.command()
@@ -71,14 +77,24 @@ def mirror(
     its namespace is assumed to be the current user, or the path of a project
     under a specific namespace ("mynamespace/myproject").
     """
-    _mirror(target_forks=target_forks, dry_run=dry_run, repo=repo)
+    gitlab_repos, github_repos = _get_repos(github_forks=True,
+        gitlab_repo=repo)
+
+    actions = find_actions_to_perform(gitlab_repos, github_repos)
+
+    print_summary_table(actions)
+
+    perform_actions(actions, dry_run)
+
+    typer.echo('Done!')
 
 
-def _mirror(target_forks=True, dry_run=True, repo=None):
-    github.target_forks = target_forks
+AllRepos = namedtuple("AllRepos", ["gitlab_repos", "github_repos"])
+def _get_repos(github_forks=False, gitlab_repo=None) -> AllRepos:
+    github.target_forks = github_forks
 
-    if repo:
-        gitlab_repos = [gitlab.get_repo_by_shorthand(repo)]
+    if gitlab_repo:
+        gitlab_repos = [gitlab.get_repo_by_shorthand(gitlab_repo)]
     else:
         typer.echo('Getting your public GitLab repositories')
         gitlab_repos = gitlab.get_repos()
@@ -88,6 +104,13 @@ def _mirror(target_forks=True, dry_run=True, repo=None):
 
     typer.echo('Getting your public GitHub repositories')
     github_repos = github.get_repos()
+
+    return AllRepos(gitlab_repos=gitlab_repos, github_repos=github_repos)
+
+
+def _mirror(target_forks=False, dry_run=True, repo=None):
+    gitlab_repos, github_repos = _get_repos(github_forks=True,
+        gitlab_repo=repo)
 
     actions = find_actions_to_perform(gitlab_repos, github_repos)
 
