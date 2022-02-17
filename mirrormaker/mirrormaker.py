@@ -1,4 +1,5 @@
 from collections import namedtuple
+from dateutil.parser import isoparse
 from dataclasses import dataclass
 from tabulate import tabulate
 import typer
@@ -132,16 +133,21 @@ def get_mirror_statuses(gitlab_repos, github_repos):
 class MirrorStatus:
     has_github_repo = False
     has_mirror_configured = False
+    has_mirror_enabled = False
     last_mirror_push_at = None
     last_mirror_push_succeeded = None
     last_source_commit_at = None
 
     @property
-    def mirror_is_up_to_date(self) -> Optional[bool]:
+    def is_up_to_date(self) -> Optional[bool]:
         if self.last_mirror_push_at is None \
         or self.last_source_commit_at is None:
             return None
         return self.last_source_commit_at < self.last_mirror_push_at
+
+    @property
+    def outdated_by(self):
+        return (self.last_source_commit_at - self.last_mirror_push_at).total_seconds
 
 
 def check_mirror_status(gitlab_repo, github_repos) -> MirrorStatus:
@@ -157,10 +163,15 @@ def check_mirror_status(gitlab_repo, github_repos) -> MirrorStatus:
 
     status = MirrorStatus()
 
+    status.last_source_commit_at = gitlab.get_most_recent_commit_time(gitlab_repo)
+
     mirrors = gitlab.get_mirrors(gitlab_repo)
-    if gitlab.mirror_target_exists(github_repos, mirrors):
+    if (github_mirror := gitlab.get_github_mirror(github_repos, mirrors)):
         status.has_github_repo = True
         status.has_mirror_configured = True
+        status.has_mirror_enabled = github_mirror.enabled
+        status.last_mirror_push_at = isoparse(github_mirror.last_successful_update_at)
+        status.last_mirror_push_succeeded = not github_mirror.last_error
         return status
 
     if github.repo_exists(github_repos, gitlab_repo.path_with_namespace):
@@ -175,16 +186,56 @@ def print_summary_table(statuses):
 
     typer.echo('Your mirrors status summary:\n')
 
-    created = typer.style(u'\u2714 created', fg='green')
-    missing = typer.style(u'\u2718 missing', fg='red')
+    def _ok(text):
+        return typer.style(f'\u2714 {text}', fg='green')
 
-    headers = ['GitLab repo', 'GitHub repo', 'Mirror']
+    def _no(text):
+        return typer.style(f'\u2718 {text}', fg='red')
+
+    def _huh(text):
+        return typer.style(f'? {text}', fg="blue")
+
+    def _na(text):
+        return typer.style(f'- {text}', fg="bright_black")
+
+    headers = ['GitLab repo', 'GitHub repo', 'Mirror', 'Enabled', 'Up-to-date', 'Errors']
     summary = []
 
     for gitlab_repo, status in statuses.items():
         row = [gitlab_repo.path_with_namespace]
-        row.append(missing) if not status.has_github_repo else row.append(created)
-        row.append(missing) if not status.has_mirror_configured else row.append(created)
+
+        # has corresponding github repo
+        row.append(_ok("created")) if status.has_github_repo else row.append(_no("missing"))
+
+        # has mirror configured
+        row.append(_ok("created")) if status.has_mirror_configured else row.append(_no("missing"))
+
+        # enabled
+        if not status.has_mirror_configured:
+            row.append(_na("n/a"))
+        elif status.has_mirror_enabled:
+            row.append(_ok("yes"))
+        else:
+            row.append(_no("no"))
+
+        # up to date
+        if not status.has_mirror_configured:
+            row.append(_na("n/a"))
+        elif status.is_up_to_date is True:
+            row.append(_ok("yes"))
+        elif status.is_up_to_date is False:
+            row.append(_no(f"no ({status.outdated_by} s)"))
+        else:
+            row.append(_huh("unknown"))
+
+        # errors
+        if not status.has_mirror_configured:
+            row.append(_na("n/a"))
+        elif status.last_mirror_push_succeeded:
+            row.append(_ok("none"))
+        else:
+            row.append(_no("error"))
+
         summary.append(row)
 
     summary.sort()
