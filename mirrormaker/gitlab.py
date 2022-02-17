@@ -1,3 +1,4 @@
+from dateutil.parser import isoparse
 from gitlab import Gitlab
 from tqdm import tqdm
 
@@ -55,22 +56,25 @@ def get_mirrors(gitlab_repo):
     return gitlab_repo.remote_mirrors.list()
 
 
-def mirror_target_exists(github_repos, mirrors):
-    """Checks if any of the given mirrors points to any of the public GitHub repositories.
+def get_github_mirror(github_repos, mirrors):
+    """Finds which, if any, of the given mirrors points to any of the public GitHub repositories.
 
     Args:
      - github_repos: List of GitHub repositories.
      - mirrors: List of mirrors configured for a single GitLab repository.
 
     Returns:
-     - True if any of the mirror points to an existing GitHub repository, False otherwise.
+     - The mirror pointing to one of the GitHub repositories.
     """
 
     for mirror in mirrors:
-        if any(mirror.url and mirror.url.endswith(f'{repo.full_name}.git') for repo in github_repos):
-            return True
+        if not mirror.url:
+            continue
+        for repo in github_repos:
+            if mirror.url.endswith(f'/{repo.full_name}.git'):
+                return mirror
 
-    return False
+    return None
 
 
 def create_mirror(gitlab_repo, github_token, github_user):
@@ -100,3 +104,15 @@ def create_mirror(gitlab_repo, github_token, github_user):
     mirror = gitlab_repo.remote_mirrors.create(data)
 
     return mirror
+
+
+def get_most_recent_commit(gitlab_repo):
+    commits = gitlab_repo.commits.list()
+    if commits and len(commits) > 0:
+        return commits[0]
+
+
+def get_most_recent_commit_time(gitlab_repo):
+    most_recent_commit = get_most_recent_commit(gitlab_repo)
+    if most_recent_commit:
+        return isoparse(most_recent_commit.committed_date)
