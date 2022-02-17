@@ -108,19 +108,6 @@ def _get_repos(github_forks=False, gitlab_repo=None) -> AllRepos:
     return AllRepos(gitlab_repos=gitlab_repos, github_repos=github_repos)
 
 
-def _mirror(target_forks=False, dry_run=True, repo=None):
-    gitlab_repos, github_repos = _get_repos(github_forks=True,
-        gitlab_repo=repo)
-
-    actions = find_actions_to_perform(gitlab_repos, github_repos)
-
-    print_summary_table(actions)
-
-    perform_actions(actions, dry_run)
-
-    typer.echo('Done!')
-
-
 def find_actions_to_perform(gitlab_repos, github_repos):
     """Goes over provided repositories and figure out what needs to be done to create missing mirrors.
 
