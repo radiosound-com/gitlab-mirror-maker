@@ -22,6 +22,8 @@ Changes so far:
     automatically by gitlab-mirror-maker
 - Switched from `click` to `typer` and `tqdm` for CLI and progress bar,
   respectively (no immediate user improvement, just more modern)
+- Added more extensive information on mirror status (e.g. if it appears to be
+  working, is up-to-date etc.)
 
 -----
 
