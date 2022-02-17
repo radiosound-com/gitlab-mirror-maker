@@ -1,4 +1,5 @@
 from collections import namedtuple
+from dataclasses import dataclass
 from tabulate import tabulate
 import typer
 from tqdm import tqdm
@@ -44,9 +45,9 @@ def list_repos_and_mirrors(
     gitlab_repos, github_repos = _get_repos(github_forks=True,
         gitlab_repo=repo)
 
-    actions = find_actions_to_perform(gitlab_repos, github_repos)
+    statuses = get_mirror_statuses(gitlab_repos, github_repos)
 
-    print_summary_table(actions)
+    print_summary_table(statuses)
 
 
 @app.command()
@@ -80,11 +81,11 @@ def mirror(
     gitlab_repos, github_repos = _get_repos(github_forks=True,
         gitlab_repo=repo)
 
-    actions = find_actions_to_perform(gitlab_repos, github_repos)
+    statuses = get_mirror_statuses(gitlab_repos, github_repos)
 
-    print_summary_table(actions)
+    print_summary_table(statuses)
 
-    perform_actions(actions, dry_run)
+    perform_actions(statuses, dry_run)
 
     typer.echo('Done!')
 
@@ -108,27 +109,42 @@ def _get_repos(github_forks=False, gitlab_repo=None) -> AllRepos:
     return AllRepos(gitlab_repos=gitlab_repos, github_repos=github_repos)
 
 
-def find_actions_to_perform(gitlab_repos, github_repos):
-    """Goes over provided repositories and figure out what needs to be done to create missing mirrors.
+def get_mirror_statuses(gitlab_repos, github_repos):
+    """Goes over provided repositories and figure out their current mirror status
 
     Args:
      - gitlab_repos: List of GitLab repositories.
      - github_repos: List of GitHub repositories.
 
     Returns:
-     - actions: List of actions necessary to perform on a GitLab repo to create a mirror
-                eg: {'gitlab_repo: '', 'create_github': True, 'create_mirror': True}
+     - statuses: Mapping from gitlab_repo to their status
     """
 
-    actions = []
+    statuses = {}
     for gitlab_repo in tqdm(gitlab_repos, desc='Checking mirrors status'):
-        action = check_mirror_status(gitlab_repo, github_repos)
-        actions.append(action)
+        status = check_mirror_status(gitlab_repo, github_repos)
+        statuses[gitlab_repo] = status
 
-    return actions
+    return statuses
 
 
-def check_mirror_status(gitlab_repo, github_repos):
+@dataclass
+class MirrorStatus:
+    has_github_repo = False
+    has_mirror_configured = False
+    last_mirror_push_at = None
+    last_mirror_push_succeeded = None
+    last_source_commit_at = None
+
+    @property
+    def mirror_is_up_to_date(self) -> Optional[bool]:
+        if self.last_mirror_push_at is None \
+        or self.last_source_commit_at is None:
+            return None
+        return self.last_source_commit_at < self.last_mirror_push_at
+
+
+def check_mirror_status(gitlab_repo, github_repos) -> MirrorStatus:
     """Checks if given GitLab repository has a mirror created among the given GitHub repositories. 
 
     Args:
@@ -136,24 +152,24 @@ def check_mirror_status(gitlab_repo, github_repos):
      - github_repos: List of GitHub repositories.
 
     Returns:
-     - action: Action necessary to perform on a GitLab repo to create a mirror (see find_actions_to_perform())
+     - status: Status indicating action necessary to perform on a GitLab repo to create a mirror (see get_mirror_statuses())
     """
 
-    action = {'gitlab_repo': gitlab_repo, 'create_github': True, 'create_mirror': True}
+    status = MirrorStatus()
 
     mirrors = gitlab.get_mirrors(gitlab_repo)
     if gitlab.mirror_target_exists(github_repos, mirrors):
-        action['create_github'] = False
-        action['create_mirror'] = False
-        return action
+        status.has_github_repo = True
+        status.has_mirror_configured = True
+        return status
 
     if github.repo_exists(github_repos, gitlab_repo.path_with_namespace):
-        action['create_github'] = False
+        status.has_github_repo = True
 
-    return action
+    return status
 
 
-def print_summary_table(actions):
+def print_summary_table(statuses):
     """Prints a table summarizing whether mirrors are already created or missing
     """
 
@@ -165,10 +181,10 @@ def print_summary_table(actions):
     headers = ['GitLab repo', 'GitHub repo', 'Mirror']
     summary = []
 
-    for action in actions:
-        row = [action["gitlab_repo"].path_with_namespace]
-        row.append(missing) if action["create_github"] else row.append(created)
-        row.append(missing) if action["create_mirror"] else row.append(created)
+    for gitlab_repo, status in statuses.items():
+        row = [gitlab_repo.path_with_namespace]
+        row.append(missing) if not status.has_github_repo else row.append(created)
+        row.append(missing) if not status.has_mirror_configured else row.append(created)
         summary.append(row)
 
     summary.sort()
@@ -176,7 +192,7 @@ def print_summary_table(actions):
     typer.echo(tabulate(summary, headers) + '\n')
 
 
-def perform_actions(actions, dry_run):
+def perform_actions(statuses, dry_run):
     """Creates GitHub repositories and configures GitLab mirrors where necessary. 
 
     Args:
@@ -188,12 +204,12 @@ def perform_actions(actions, dry_run):
         typer.echo('Run without the --dry-run flag to create missing repositories and mirrors.')
         return
 
-    for action in tqdm(actions, desc='Creating mirrors'):
-        if action["create_github"]:
-            github.create_repo(action["gitlab_repo"])
+    for gitlab_repo, status in tqdm(statuses.items(), desc='Creating mirrors'):
+        if not status.has_github_repo:
+            github.create_repo(gitlab_repo)
 
-        if action["create_mirror"]:
-            gitlab.create_mirror(action["gitlab_repo"], github.token, github.user)
+        if not status.has_mirror_configured:
+            gitlab.create_mirror(gitlab_repo)
 
 
 def main():
