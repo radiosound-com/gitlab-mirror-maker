@@ -149,6 +149,16 @@ class MirrorStatus:
     def outdated_by(self):
         return (self.last_source_commit_at - self.last_mirror_push_at).total_seconds
 
+    @property
+    def is_active_without_issues(self):
+        return (self.has_github_repo and self.is_up_to_date
+            and self.has_mirror_configured and self.has_mirror_enabled
+            and self.is_up_to_date and self.last_mirror_push_succeeded)
+
+    @property
+    def no_setup_whatsoever(self):
+        return not self.has_github_repo
+
 
 def check_mirror_status(gitlab_repo, github_repos) -> MirrorStatus:
     """Checks if given GitLab repository has a mirror created among the given GitHub repositories. 
@@ -181,7 +191,7 @@ def check_mirror_status(gitlab_repo, github_repos) -> MirrorStatus:
 
 
 def print_summary_table(statuses):
-    """Prints a table summarizing whether mirrors are already created or missing
+    """Print a table summarizing mirror status.
     """
 
     typer.echo('Your mirrors status summary:\n')
@@ -192,49 +202,43 @@ def print_summary_table(statuses):
     def _no(text):
         return typer.style(f'\u2718 {text}', fg='red')
 
+    def _warn(text):
+        return typer.style(f'\u26A0 {text}', fg='yellow')
+
     def _huh(text):
         return typer.style(f'? {text}', fg="blue")
 
     def _na(text):
         return typer.style(f'- {text}', fg="bright_black")
 
-    headers = ['GitLab repo', 'GitHub repo', 'Mirror', 'Enabled', 'Up-to-date', 'Errors']
+    headers = ['GitLab repo', 'Mirror', 'Details']
     summary = []
 
     for gitlab_repo, status in statuses.items():
         row = [gitlab_repo.path_with_namespace]
 
-        # has corresponding github repo
-        row.append(_ok("created")) if status.has_github_repo else row.append(_no("missing"))
-
-        # has mirror configured
-        row.append(_ok("created")) if status.has_mirror_configured else row.append(_no("missing"))
-
-        # enabled
-        if not status.has_mirror_configured:
-            row.append(_na("n/a"))
-        elif status.has_mirror_enabled:
-            row.append(_ok("yes"))
+        if status.is_active_without_issues:
+            # summary of overall state
+            row.append(_ok("active"))
+            # details
+            row.append("")
+        elif status.no_setup_whatsoever:
+            # summary of overall state
+            row.append(_na("-"))
+            # details
+            row.append("")
         else:
-            row.append(_no("no"))
-
-        # up to date
-        if not status.has_mirror_configured:
-            row.append(_na("n/a"))
-        elif status.is_up_to_date is True:
-            row.append(_ok("yes"))
-        elif status.is_up_to_date is False:
-            row.append(_no(f"no ({status.outdated_by} s)"))
-        else:
-            row.append(_huh("unknown"))
-
-        # errors
-        if not status.has_mirror_configured:
-            row.append(_na("n/a"))
-        elif status.last_mirror_push_succeeded:
-            row.append(_ok("none"))
-        else:
-            row.append(_no("error"))
+            # summary of overall state
+            row.append(_warn("issues"))
+            # details
+            if not status.has_mirror_configured:
+                row.append("GitHub repo exists but no mirror configured")
+            elif not status.has_mirror_enabled:
+                row.append("mirror disabled")
+            elif not status.is_up_to_date:
+                row.append("mirror not up to date")
+            elif not status.last_mirror_push_succeeded:
+                row.append("errors on last push attempt")
 
         summary.append(row)
 
