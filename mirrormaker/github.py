@@ -40,6 +40,11 @@ def repo_exists(github_repos, repo_slug):
     return any(repo.full_name == repo_slug for repo in github_repos)
 
 
+def get_repo_by_slug(github_repos, repo_slug):
+    l = [repo for repo in github_repos if repo.full_name == repo_slug]
+    return l[0] if len(l) > 0 else None
+
+
 def create_repo(gitlab_repo):
     """Creates GitHub repository based on a metadata from given GitLab repository.
 
@@ -62,3 +67,7 @@ def create_repo(gitlab_repo):
     }
 
     return gh.get_user().create_repo(**data)
+
+
+def set_description(github_repo, description):
+    github_repo.edit(description=description)

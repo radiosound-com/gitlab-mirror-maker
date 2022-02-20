@@ -29,6 +29,10 @@ def get_user():
     return gl.user
 
 
+def get_project_url(gitlab_repo):
+    return f'https://gitlab.com/{gitlab_repo.path_with_namespace}'
+
+
 def get_repo_by_shorthand(shorthand):
     if "/" not in shorthand:
         user = get_user().username

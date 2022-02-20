@@ -1,6 +1,7 @@
 from collections import namedtuple
 from dateutil.parser import isoparse
 from dataclasses import dataclass
+from string import Template
 from tabulate import tabulate
 import typer
 from tqdm import tqdm
@@ -11,6 +12,8 @@ from . import github
 
 
 app = typer.Typer()
+
+description_template = "${source_description} | mirror of ${source_url}"
 
 
 @app.callback(context_settings={'auto_envvar_prefix': 'MIRRORMAKER'})
@@ -57,6 +60,11 @@ def mirror(
         False,
         help="Allow forks as target repos for pushing."
     ),
+    force_update_metadata: bool = typer.Option(
+        False,
+        help="If enabled, will update metadata like the description and "
+        "website URL even if it's already set."
+    ),
     dry_run: bool = typer.Option(
         False,
         help="If enabled, a summary will be printed and no mirrors will be created."
@@ -86,7 +94,8 @@ def mirror(
 
     print_summary_table(statuses)
 
-    perform_actions(statuses, dry_run)
+    perform_actions(statuses, dry_run,
+        force_update_metadata=force_update_metadata)
 
     typer.echo('Done!')
 
@@ -131,12 +140,17 @@ def get_mirror_statuses(gitlab_repos, github_repos):
 
 @dataclass
 class MirrorStatus:
-    has_github_repo = False
+    # stuff relevant to mirroring
+    github_repo = None
     has_mirror_configured = False
     has_mirror_enabled = False
     last_mirror_push_at = None
     last_mirror_push_succeeded = None
     last_source_commit_at = None
+
+    # repo metadata
+    description_matches_template = None
+    description_is_empty = None
 
     @property
     def is_up_to_date(self) -> Optional[bool]:
@@ -144,6 +158,10 @@ class MirrorStatus:
         or self.last_source_commit_at is None:
             return None
         return self.last_source_commit_at < self.last_mirror_push_at
+
+    @property
+    def has_github_repo(self):
+        return self.github_repo is not None
 
     @property
     def outdated_by(self):
@@ -158,6 +176,15 @@ class MirrorStatus:
     @property
     def no_setup_whatsoever(self):
         return not self.has_github_repo
+
+
+def build_description(gitlab_repo):
+    t = Template(description_template)
+    s = dict(
+        source_description=gitlab_repo.description,
+        source_url=gitlab.get_project_url(gitlab_repo),
+    )
+    return t.substitute(s)
 
 
 def check_mirror_status(gitlab_repo, github_repos) -> MirrorStatus:
@@ -175,17 +202,25 @@ def check_mirror_status(gitlab_repo, github_repos) -> MirrorStatus:
 
     status.last_source_commit_at = gitlab.get_most_recent_commit_time(gitlab_repo)
 
+    # stuff on the gitlab end
     mirrors = gitlab.get_mirrors(gitlab_repo)
     if (github_mirror := gitlab.get_github_mirror(github_repos, mirrors)):
-        status.has_github_repo = True
         status.has_mirror_configured = True
         status.has_mirror_enabled = github_mirror.enabled
         status.last_mirror_push_at = isoparse(github_mirror.last_successful_update_at)
         status.last_mirror_push_succeeded = not github_mirror.last_error
-        return status
 
-    if github.repo_exists(github_repos, gitlab_repo.path_with_namespace):
-        status.has_github_repo = True
+    # stuff on the github end
+    github_repo = github.get_repo_by_slug(github_repos,
+        gitlab_repo.path_with_namespace)
+    status.github_repo = github_repo
+
+    if github_repo is not None:
+        desired_description = build_description(gitlab_repo)
+        status.description_matches_template = (
+            github_repo.description == desired_description
+        )
+        status.description_is_empty = not github_repo.description
 
     return status
 
@@ -220,8 +255,11 @@ def print_summary_table(statuses):
         if status.is_active_without_issues:
             # summary of overall state
             row.append(_ok("active"))
-            # details
-            row.append("")
+            # details (minor issues only if active)
+            if not status.description_matches_template:
+                row.append("description doesn't match template")
+            else:
+                row.append("")
         elif status.no_setup_whatsoever:
             # summary of overall state
             row.append(_na("-"))
@@ -239,6 +277,8 @@ def print_summary_table(statuses):
                 row.append("mirror not up to date")
             elif not status.last_mirror_push_succeeded:
                 row.append("errors on last push attempt")
+            else:
+                row.append("unknown issue")
 
         summary.append(row)
 
@@ -247,12 +287,13 @@ def print_summary_table(statuses):
     typer.echo(tabulate(summary, headers) + '\n')
 
 
-def perform_actions(statuses, dry_run):
+def perform_actions(statuses, dry_run, force_update_metadata=False):
     """Creates GitHub repositories and configures GitLab mirrors where necessary. 
 
     Args:
      - actions: List of actions to perform, either creating GitHub repo and/or configuring GitLab mirror.
      - dry_run (bool): When True the actions are not performed.
+     - force_update_metadata (bool): Whether to overwrite metadata like the description even if they're not empty.
     """
 
     if dry_run:
@@ -265,6 +306,11 @@ def perform_actions(statuses, dry_run):
 
         if not status.has_mirror_configured:
             gitlab.create_mirror(gitlab_repo)
+
+        if not status.description_matches_template \
+        and (force_update_metadata or status.description_is_empty):
+            github.set_description(status.github_repo,
+                build_description(gitlab_repo))
 
 
 def main():
