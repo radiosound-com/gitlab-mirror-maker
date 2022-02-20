@@ -23,7 +23,7 @@ Changes so far:
 - Switched from `click` to `typer` and `tqdm` for CLI and progress bar,
   respectively (no immediate user improvement, just more modern)
 - Added more extensive information on mirror status (e.g. if it appears to be
-  working, is up-to-date etc.)
+  working, is up-to-date etc.) which will be summarized in the table
 
 -----
 
