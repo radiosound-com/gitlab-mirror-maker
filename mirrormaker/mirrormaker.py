@@ -147,6 +147,7 @@ class MirrorStatus:
     last_mirror_push_at = None
     last_mirror_push_succeeded = None
     last_source_commit_at = None
+    has_other_mirror = False
 
     # repo metadata
     description_matches_template = None
@@ -209,6 +210,8 @@ def check_mirror_status(gitlab_repo, github_repos) -> MirrorStatus:
         status.has_mirror_enabled = github_mirror.enabled
         status.last_mirror_push_at = isoparse(github_mirror.last_successful_update_at)
         status.last_mirror_push_succeeded = not github_mirror.last_error
+    elif mirrors:
+        status.has_other_mirror = True
 
     # stuff on the github end
     github_repo = github.get_repo_by_slug(github_repos,
@@ -264,7 +267,10 @@ def print_summary_table(statuses):
             # summary of overall state
             row.append(_na("-"))
             # details
-            row.append("")
+            if status.has_other_mirror:
+                row.append("has other mirror(s)")
+            else:
+                row.append("")
         else:
             # summary of overall state
             row.append(_warn("issues"))
