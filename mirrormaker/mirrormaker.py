@@ -1,7 +1,7 @@
 from collections import namedtuple
 from dateutil.parser import isoparse
 from dataclasses import dataclass
-from string import Template
+from jinja2 import Template
 from tabulate import tabulate
 import typer
 from tqdm import tqdm
@@ -13,7 +13,10 @@ from . import github
 
 app = typer.Typer()
 
-description_template = "${source_description} | mirror of ${source_url}"
+description_template = (
+    "{% if source_description %}{{source_description}} | {% endif %}"
+    "mirror of {{source_url}}"
+)
 
 
 @app.callback(context_settings={'auto_envvar_prefix': 'MIRRORMAKER'})
@@ -185,7 +188,8 @@ def build_description(gitlab_repo):
         source_description=gitlab_repo.description,
         source_url=gitlab.get_project_url(gitlab_repo),
     )
-    return t.substitute(s)
+    print(t.render(s))
+    return t.render(s)
 
 
 def check_mirror_status(gitlab_repo, github_repos) -> MirrorStatus:
