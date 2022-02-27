@@ -25,6 +25,7 @@ Changes so far:
 - Added more extensive information on mirror status (e.g. if it appears to be
   working, is up-to-date, has the desired description format etc.) which will
   be summarized in the table
+- Split up into several CLI commands: `list`, `show` and `mirror`
 
 -----
 
