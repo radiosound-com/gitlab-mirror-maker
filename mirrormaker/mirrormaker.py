@@ -103,6 +103,27 @@ def mirror(
     typer.echo('Done!')
 
 
+@app.command()
+def show(
+    repo: str = typer.Argument(
+        ...,
+        help='Repository to show info for'
+    )
+):
+    """
+    Show info on a GitLab repository and its mirror status.
+    """
+    gitlab_repos, github_repos = _get_repos(github_forks=True,
+        gitlab_repo=repo)
+
+    statuses = get_mirror_statuses(gitlab_repos, github_repos)
+
+    gitlab_repo = gitlab_repos[0]
+    status = statuses[gitlab_repo]
+
+    print_repo_info(gitlab_repo, status)
+
+
 AllRepos = namedtuple("AllRepos", ["gitlab_repos", "github_repos"])
 def _get_repos(github_forks=False, gitlab_repo=None) -> AllRepos:
     github.target_forks = github_forks
@@ -326,6 +347,43 @@ def perform_actions(statuses, dry_run, force_update_metadata=False):
             github.set_description(status.github_repo,
                 build_description(gitlab_repo))
 
+
+def print_repo_info(gitlab_repo, status):
+    def _ok(text):
+        return typer.style(f'\u2714 {text}', fg='green')
+
+    def _no(text):
+        return typer.style(f'\u2718 {text}', fg='red')
+
+    def _bool(x):
+        return _ok("yes") if x else _no("no")
+
+    rows = [
+        ["GitLab: ", gitlab_repo.path_with_namespace],
+        [
+            "Last source commit at: ",
+            status.last_source_commit_at.isoformat(sep=" ", timespec="seconds")
+        ],
+        ["GitHub: ", status.github_repo.full_name or _bool(False)],
+        ["Mirror configured: ", _bool(status.has_mirror_configured)],
+        ["Mirror enabled: ", _bool(status.has_mirror_enabled)],
+        [
+            "Last mirror push succeeded: ",
+            _bool(status.last_mirror_push_succeeded)
+        ],
+        ["Mirror up to date: ", _bool(status.is_up_to_date)],
+        [
+            "Last mirror push at: ",
+            status.last_mirror_push_at.isoformat(sep=" ", timespec="seconds")
+        ],
+        [
+            "Description matches template: ",
+            _bool(status.description_matches_template)
+        ],
+        ["Other mirrors: ", _bool(status.has_other_mirror)],
+    ]
+
+    typer.echo(tabulate(rows))
 
 def main():
     app()
