@@ -154,6 +154,10 @@ class MirrorStatus:
     description_is_empty = None
 
     @property
+    def should_have_mirror(self):
+        return self.has_github_repo or self.has_mirror_configured
+
+    @property
     def is_up_to_date(self) -> Optional[bool]:
         if self.last_mirror_push_at is None \
         or self.last_source_commit_at is None:
@@ -263,7 +267,7 @@ def print_summary_table(statuses):
                 row.append("description doesn't match template")
             else:
                 row.append("")
-        elif status.no_setup_whatsoever:
+        elif not status.should_have_mirror:
             # summary of overall state
             row.append(_na("-"))
             # details
