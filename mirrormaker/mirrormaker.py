@@ -213,7 +213,6 @@ def build_description(gitlab_repo):
         source_description=gitlab_repo.description,
         source_url=gitlab.get_project_url(gitlab_repo),
     )
-    print(t.render(s))
     return t.render(s)
 
 
