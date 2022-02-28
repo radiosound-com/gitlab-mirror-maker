@@ -355,16 +355,31 @@ def print_repo_info(gitlab_repo, status):
     def _no(text):
         return typer.style(f'\u2718 {text}', fg='red')
 
+    def _na(text):
+        return typer.style(f'- {text}', fg="bright_black")
+
     def _bool(x):
         return _ok("yes") if x else _no("no")
 
+    def _or_na(x, na=""):
+        return x if x is not None else _na(na)
+
+    def _datetime_or_none(x):
+        if x is None:
+            return None
+        return x.isoformat(sep=" ", timespec="seconds")
+
     rows = [
-        ["GitLab: ", gitlab_repo.path_with_namespace],
+        ["GitLab repo: ", gitlab_repo.path_with_namespace],
         [
             "Last source commit at: ",
-            status.last_source_commit_at.isoformat(sep=" ", timespec="seconds")
+            _or_na(_datetime_or_none(status.last_source_commit_at)),
         ],
-        ["GitHub: ", status.github_repo.full_name or _bool(False)],
+        [
+            "GitHub repo: ",
+            status.github_repo.full_name if status.github_repo
+                else _bool(False)
+        ],
         ["Mirror configured: ", _bool(status.has_mirror_configured)],
         ["Mirror enabled: ", _bool(status.has_mirror_enabled)],
         [
@@ -374,7 +389,7 @@ def print_repo_info(gitlab_repo, status):
         ["Mirror up to date: ", _bool(status.is_up_to_date)],
         [
             "Last mirror push at: ",
-            status.last_mirror_push_at.isoformat(sep=" ", timespec="seconds")
+            _or_na(_datetime_or_none(status.last_mirror_push_at)),
         ],
         [
             "Description matches template: ",
