@@ -1,6 +1,6 @@
 from dateutil.parser import isoparse
 from gitlab import Gitlab
-from tqdm import tqdm
+from .tqdm import tqdm
 
 # GitLab user authentication token
 token = ''
@@ -17,7 +17,7 @@ def get_repos():
 
     repos_iter = gl.projects.list(visibility='public', owned=True,
         archived=False, as_list=False)
-    repos = [ repo for repo in tqdm(repos_iter, desc="Repos") ]
+    repos = [ repo for repo in tqdm(repos_iter, desc="GitLab repos") ]
 
     return repos
 
