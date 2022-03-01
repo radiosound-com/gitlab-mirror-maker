@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from jinja2 import Template
 from tabulate import tabulate
 import typer
-from tqdm import tqdm
+from .tqdm import tqdm
 from typing import Optional
 from . import __version__
 from . import gitlab
@@ -17,7 +17,6 @@ description_template = (
     "{% if source_description %}{{source_description}} | {% endif %}"
     "mirror of {{source_url}}"
 )
-
 
 @app.callback(context_settings={'auto_envvar_prefix': 'MIRRORMAKER'})
 def mirrormaker(
@@ -131,13 +130,11 @@ def _get_repos(github_forks=False, gitlab_repo=None) -> AllRepos:
     if gitlab_repo:
         gitlab_repos = [gitlab.get_repo_by_shorthand(gitlab_repo)]
     else:
-        typer.echo('Getting your public GitLab repositories')
         gitlab_repos = gitlab.get_repos()
         if not gitlab_repos:
             typer.echo('There are no public repositories in your GitLab account.')
             return
 
-    typer.echo('Getting your public GitHub repositories')
     github_repos = github.get_repos()
 
     return AllRepos(gitlab_repos=gitlab_repos, github_repos=github_repos)
@@ -155,7 +152,7 @@ def get_mirror_statuses(gitlab_repos, github_repos):
     """
 
     statuses = {}
-    for gitlab_repo in tqdm(gitlab_repos, desc='Checking mirrors status'):
+    for gitlab_repo in tqdm(gitlab_repos, desc='Mirror configs'):
         status = check_mirror_status(gitlab_repo, github_repos)
         statuses[gitlab_repo] = status
 
@@ -260,8 +257,6 @@ def print_summary_table(statuses):
     """Print a table summarizing mirror status.
     """
 
-    typer.echo('Your mirrors status summary:\n')
-
     def _ok(text):
         return typer.style(f'\u2714 {text}', fg='green')
 
@@ -318,7 +313,7 @@ def print_summary_table(statuses):
 
     summary.sort()
 
-    typer.echo(tabulate(summary, headers) + '\n')
+    typer.echo(tabulate(summary, headers))
 
 
 def perform_actions(statuses, dry_run, force_update_metadata=False):

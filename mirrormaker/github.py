@@ -1,5 +1,5 @@
 from github import Github
-from tqdm import tqdm
+from .tqdm import tqdm
 
 # GitHub user authentication token
 token = ''
@@ -21,7 +21,7 @@ def get_repos():
 
     # Return only public non forked repositories unless target_forks is set
     repos_iter = gh.get_user().get_repos(type="public")
-    repos_tqdm = tqdm(repos_iter, total=repos_iter.totalCount, desc="Repos")
+    repos_tqdm = tqdm(repos_iter, total=repos_iter.totalCount, desc="GitHub repos")
 
     return [ x for x in repos_tqdm if not x.fork or target_forks ]
 
