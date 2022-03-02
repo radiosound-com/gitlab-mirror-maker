@@ -366,6 +366,10 @@ def print_repo_info(gitlab_repo, status):
     rows = [
         ["GitLab repo: ", gitlab_repo.path_with_namespace],
         [
+            "GitLab description: ",
+            gitlab_repo.description
+        ],
+        [
             "Last source commit at: ",
             _or_na(_datetime_or_none(status.last_source_commit_at)),
         ],
@@ -385,11 +389,19 @@ def print_repo_info(gitlab_repo, status):
             "Last mirror push at: ",
             _or_na(_datetime_or_none(status.last_mirror_push_at)),
         ],
+        ["Other mirrors: ", _bool(status.has_other_mirror)],
         [
             "Description matches template: ",
             _bool(status.description_matches_template)
         ],
-        ["Other mirrors: ", _bool(status.has_other_mirror)],
+        [
+            "GitHub description: ",
+            status.github_repo.description
+        ],
+        [
+            "Template description: ",
+            build_description(gitlab_repo)
+        ],
     ]
 
     typer.echo(tabulate(rows))
