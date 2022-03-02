@@ -17,6 +17,8 @@ description_template = (
     "{% if source_description %}{{source_description}} | {% endif %}"
     "mirror of {{source_url}}"
 )
+website_template = "{{source_url or ''}}"
+
 
 @app.callback(context_settings={'auto_envvar_prefix': 'MIRRORMAKER'})
 def mirrormaker(
@@ -173,6 +175,8 @@ class MirrorStatus:
     # repo metadata
     description_matches_template = None
     description_is_empty = None
+    website_matches_template = None
+    website_is_empty = None
 
     @property
     def should_have_mirror(self):
@@ -213,6 +217,15 @@ def build_description(gitlab_repo):
     return t.render(s)
 
 
+def build_website(gitlab_repo):
+    t = Template(website_template)
+    s = dict(
+        source_url=gitlab.get_project_url(gitlab_repo),
+    )
+    return t.render(s)
+
+
+
 def check_mirror_status(gitlab_repo, github_repos) -> MirrorStatus:
     """Checks if given GitLab repository has a mirror created among the given GitHub repositories. 
 
@@ -244,11 +257,19 @@ def check_mirror_status(gitlab_repo, github_repos) -> MirrorStatus:
     status.github_repo = github_repo
 
     if github_repo is not None:
+        # metadata
+        # description
         desired_description = build_description(gitlab_repo)
         status.description_matches_template = (
             github_repo.description == desired_description
         )
         status.description_is_empty = not github_repo.description
+        # website / homepage
+        desired_website = build_website(gitlab_repo)
+        status.website_matches_template = (
+            github_repo.homepage == desired_website
+        )
+        status.website_is_empty = not github_repo.homepage
 
     return status
 
@@ -340,6 +361,7 @@ def perform_actions(statuses, dry_run, force_update_metadata=False):
         and (force_update_metadata or status.description_is_empty):
             github.set_description(status.github_repo,
                 build_description(gitlab_repo))
+            github.set_website(status.github_repo, build_website(gitlab_repo))
 
 
 def print_repo_info(gitlab_repo, status):
@@ -389,7 +411,10 @@ def print_repo_info(gitlab_repo, status):
             "Last mirror push at: ",
             _or_na(_datetime_or_none(status.last_mirror_push_at)),
         ],
-        ["Other mirrors: ", _bool(status.has_other_mirror)],
+        [
+            "Other mirrors: ",
+            _or_na("yes" if status.has_other_mirror else None)
+        ],
         [
             "Description matches template: ",
             _bool(status.description_matches_template)
@@ -401,6 +426,18 @@ def print_repo_info(gitlab_repo, status):
         [
             "Template description: ",
             build_description(gitlab_repo)
+        ],
+        [
+            "Website matches template: ",
+            _bool(status.website_matches_template)
+        ],
+        [
+            "GitHub website: ",
+            status.github_repo.homepage
+        ],
+        [
+            "Template website: ",
+            build_website(gitlab_repo)
         ],
     ]
 

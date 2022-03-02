@@ -71,3 +71,7 @@ def create_repo(gitlab_repo):
 
 def set_description(github_repo, description):
     github_repo.edit(description=description)
+
+
+def set_website(github_repo, website):
+    github_repo.edit(homepage=website)
