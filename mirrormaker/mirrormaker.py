@@ -34,10 +34,28 @@ def mirrormaker(
         None,
         help='GitHub username. If not provided, your GitLab username will be used by default.'
     ),
+    description_template_param: Optional[str] = typer.Option(
+        description_template,
+        "--description-template",
+        help='Template for mirror descriptions in Jinja2 format. May contain '
+        'the following placeholders: source_description (description of '
+        'repository to be mirrored), source_url (GitLab URL of project to be'
+        'mirrored)'
+    ),
+    website_template_param: Optional[str] = typer.Option(
+        website_template,
+        "--website-template",
+        help='Template for mirror website settings in Jinja2 format. May '
+        'contain the following placeholders: source_url (GitLab URL of '
+        'project to be mirrored)'
+    ),
 ):
     github.token = github_token
     github.user = github_user
     gitlab.token = gitlab_token
+    global description_template, website_template
+    description_template = description_template_param
+    website_template = website_template_param
 
 
 @app.command("list")
