@@ -53,9 +53,14 @@ def mirrormaker(
     github.token = github_token
     github.user = github_user
     gitlab.token = gitlab_token
-    global description_template, website_template
+    global description_template, website_template, _github_token, _github_user, _github_org, _gitlab_token, _github_username
     description_template = description_template_param
     website_template = website_template_param
+    _gitlab_token = gitlab_token
+    _github_user = github_user
+    _github_token = github_token
+    _github_username = 'dennis' # for the token
+    _github_org = github_user
 
 
 @app.command("list")
@@ -271,7 +276,7 @@ def check_mirror_status(gitlab_repo, github_repos) -> MirrorStatus:
 
     # stuff on the github end
     github_repo = github.get_repo_by_slug(github_repos,
-        gitlab_repo.path_with_namespace)
+        gitlab_repo.path_with_namespace.replace("/", "_"))
     status.github_repo = github_repo
 
     if github_repo is not None:
@@ -373,7 +378,7 @@ def perform_actions(statuses, dry_run, force_update_metadata=False):
             github.create_repo(gitlab_repo)
 
         if not status.has_mirror_configured:
-            gitlab.create_mirror(gitlab_repo)
+            gitlab.create_mirror(gitlab_repo, _github_token, _github_username, _github_org)
 
         if not status.description_matches_template \
         and (force_update_metadata or status.description_is_empty):
@@ -439,7 +444,7 @@ def print_repo_info(gitlab_repo, status):
         ],
         [
             "GitHub description: ",
-            status.github_repo.description
+            status.github_repo.description if status.github_repo else "-"
         ],
         [
             "Template description: ",
@@ -451,7 +456,7 @@ def print_repo_info(gitlab_repo, status):
         ],
         [
             "GitHub website: ",
-            status.github_repo.homepage
+            status.github_repo.homepage if status.github_repo else "-"
         ],
         [
             "Template website: ",

@@ -5,7 +5,7 @@ from .tqdm import tqdm
 token = ''
 
 # GitHub username (under this user namespace the mirrors will be created)
-user = ''
+user = 'radiosound-com'
 
 target_forks = False
 
@@ -20,7 +20,11 @@ def get_repos():
     gh = Github(token)
 
     # Return only public non forked repositories unless target_forks is set
-    repos_iter = gh.get_user().get_repos(type="public")
+    #repos_iter = gh.get_user().get_repos(type="public")
+    #repos_tqdm = tqdm(repos_iter, total=repos_iter.totalCount, desc="GitHub repos")
+    org = gh.get_organization('radiosound-com')
+    repos_iter = org.get_repos()
+    repos_iter
     repos_tqdm = tqdm(repos_iter, total=repos_iter.totalCount, desc="GitHub repos")
 
     return [ x for x in repos_tqdm if not x.fork or target_forks ]
@@ -41,7 +45,7 @@ def repo_exists(github_repos, repo_slug):
 
 
 def get_repo_by_slug(github_repos, repo_slug):
-    l = [repo for repo in github_repos if repo.full_name == repo_slug]
+    l = [repo for repo in github_repos if repo.full_name.endswith(f'/{repo_slug}')]
     return l[0] if len(l) > 0 else None
 
 
@@ -55,18 +59,22 @@ def create_repo(gitlab_repo):
      - JSON representation of created GitHub repo.
     """
 
-    gh = Github(base_url="https://github.com/api/v3", login_or_token=token)
+    gh = Github(token)
+
+    path = gitlab_repo.path_with_namespace.replace('/', '_')
 
     data = {
-        'name': gitlab_repo['path'],
-        'description': f'{gitlab_repo["description"]} [mirror]',
-        'homepage': gitlab_repo['web_url'],
-        'private': False,
+        'name': path,
+        'description': f'{gitlab_repo.description} [mirror]',
+        'homepage': gitlab_repo.web_url,
+        'private': True,
         'has_wiki': False,
         'has_projects': False
     }
 
-    return gh.get_user().create_repo(**data)
+    org = gh.get_organization('radiosound-com')
+
+    return org.create_repo(**data)
 
 
 def set_description(github_repo, description):

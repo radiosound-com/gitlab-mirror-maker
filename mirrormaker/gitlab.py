@@ -3,34 +3,35 @@ from gitlab import Gitlab
 from .tqdm import tqdm
 
 # GitLab user authentication token
-token = ''
+#token = ''
+
+base_url = 'https://gitlab.apps.radiosound.com/'
 
 
 def get_repos():
     """Finds all public GitLab repositories of authenticated user.
 
     Returns:
-     - List of public GitLab repositories.
+     - List of all GitLab repositories.
     """
 
-    gl = Gitlab('https://gitlab.com/', private_token=token)
+    gl = Gitlab(base_url, private_token=token)
 
-    repos_iter = gl.projects.list(visibility='public', owned=True,
-        archived=False, as_list=False)
+    repos_iter = gl.projects.list(archived=False, as_list=False)
     repos = [ repo for repo in tqdm(repos_iter, desc="GitLab repos") ]
 
     return repos
 
 
 def get_user():
-    gl = Gitlab('https://gitlab.com/', private_token=token)
+    gl = Gitlab(base_url, private_token=token)
     gl.auth()
 
     return gl.user
 
 
 def get_project_url(gitlab_repo):
-    return f'https://gitlab.com/{gitlab_repo.path_with_namespace}'
+    return f'{base_url}{gitlab_repo.path_with_namespace}'
 
 
 def get_repo_by_shorthand(shorthand):
@@ -40,7 +41,7 @@ def get_repo_by_shorthand(shorthand):
     else:
         namespace, project = shorthand.rsplit("/", maxsplit=1)
 
-    gl = Gitlab('https://gitlab.com/', private_token=token)
+    gl = Gitlab(base_url, private_token=token)
 
     project_id = "/".join([namespace, project])
 
@@ -81,7 +82,7 @@ def get_github_mirror(github_repos, mirrors):
     return None
 
 
-def create_mirror(gitlab_repo, github_token, github_user):
+def create_mirror(gitlab_repo, github_token, github_username, github_path):
     """Creates a push mirror of GitLab repository.
 
     For more details see: 
@@ -89,7 +90,7 @@ def create_mirror(gitlab_repo, github_token, github_user):
 
     Args:
      - gitlab_repo: GitLab repository to mirror.
-     - github_token: GitHub authentication token.
+     - github_token:
      - github_user: GitHub username under whose namespace the mirror will be created (defaults to GitLab username if not provided).
 
     Returns:
@@ -97,11 +98,14 @@ def create_mirror(gitlab_repo, github_token, github_user):
     """
 
     # If github-user is not provided use the gitlab username
-    if not github_user:
-        github_user = gitlab_repo.owner.username
+    if not github_username:
+        github_username = gitlab_repo.owner.username
+
+    # Since GitHub doesn't use subgroups, flatten the path to the project with underscores
+    path = gitlab_repo.path_with_namespace.replace("/", "_")
 
     data = {
-        'url': f'https://{github_user}:{github_token}@github.com/{github_user}/{gitlab_repo.path}.git',
+        'url': f'https://{github_username}:{github_token}@github.com/{github_path}/{path}.git',
         'enabled': True
     }
 
